@@ -1,0 +1,20 @@
+.TH RUNR 7
+.SH NAME
+runr \- run tasks in git post-receive hook
+.SH SYNOPSIS
+.B runr
+.SH DESCRIPTION
+.P
+Allows for running continuous integration / delivery -type of workflows on (e.g.) git post-receive hooks. The workflows are specified in runr.yaml-file.
+.SH OPTIONS
+Runr supports reads configuration from the following environment variables:
+.IP BARE_PATH
+Path to bare repo, defaults to current directory
+.IP BRANCH
+Branch to checkout, must be specified
+.IP DEFAULT_IMAGE
+Default image to use when unspecified
+.IP PIPELINE_FILENAME
+Override filename (runr.yaml) to read the tasks from
+.IP CLEANUP
+Remove containers and the checked out directory afterwars, defaults to true

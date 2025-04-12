@@ -1,0 +1,11 @@
+Package: runr
+Version: x.y.z
+Section: utils
+Priority: optional
+Maintainer: Markus Paasiniemi <paasim@iki.fi>
+Homepage: https://github.com/paasim/runr
+Architecture: amd64
+Depends: libc6, podman
+Description: Allows for running continuous integration -type of workflows on
+ (e.g.) git post-receive hooks. The workflows are specified in runr.yaml-file
+ inside the repository.
