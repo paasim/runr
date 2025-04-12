@@ -1,0 +1,18 @@
+n_parallel: 2
+tasks:
+- commands: |
+    echo starting step 1a
+    sleep 1
+    echo ending step 1a
+  name: "step-1a"
+- commands: |
+    echo starting step 2
+    sleep 3
+    echo ending step 2
+  name: "step-2"
+- commands: |
+    echo starting step 1b
+    sleep 1
+    echo ending step 1b
+  name: "step-1b"
+  depends: ["step-1a"]
