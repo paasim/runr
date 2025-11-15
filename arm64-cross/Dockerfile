@@ -1,11 +1,11 @@
-FROM rust:1.87-bookworm
+FROM rust:1.91-bookworm
 
 ARG GROUP_ID
 ARG USER_ID
 
 RUN dpkg --add-architecture arm64 \
   && apt update \
-  && apt install -y pkg-config crossbuild-essential-arm64 libssl-dev libssl-dev:arm64 \
+  && apt install -y pkg-config crossbuild-essential-arm64 \
   && rustup target add aarch64-unknown-linux-gnu \
   && groupadd -g ${GROUP_ID} builder \
   && useradd -rm -d /home/builder -s /bin/bash -u ${USER_ID} -g ${GROUP_ID} builder \

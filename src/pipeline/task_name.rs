@@ -14,13 +14,13 @@ pub enum TaskName<'a> {
 pub struct TaskNames<'a>(HashMap<TaskName<'a>, TaskId>);
 
 impl<'a> TaskNames<'a> {
-    pub fn from_tasks(raw_tasks: &'a [RawTask], default_img: &'a str) -> Result<Self> {
+    pub fn from_tasks(raw_tasks: &'a [RawTask], default_img: Option<&'a str>) -> Result<Self> {
         let mut id_map = HashMap::new();
         let mut id = TaskId::first();
         for raw_task in raw_tasks.iter() {
-            let image = raw_task.image.as_deref().unwrap_or(default_img);
-            let img_name = TaskName::Image(image);
-            if let hash_map::Entry::Vacant(e) = id_map.entry(img_name) {
+            if let Some(image) = raw_task.image.as_deref().or(default_img)
+                && let hash_map::Entry::Vacant(e) = id_map.entry(TaskName::Image(image))
+            {
                 e.insert(id.fetch_incr()?);
             }
             let task_name = TaskName::Task(&raw_task.name);

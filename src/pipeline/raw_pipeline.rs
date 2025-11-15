@@ -31,8 +31,8 @@ impl RawPipeline {
     /// The difference to [RawTask]s is that each task gets assigned a unique
     /// [TaskId] which are used for dependencies (instead of task names).
     /// In addition, missing images are replaced with default values.
-    pub fn tasks(self, default_image: &str) -> Result<HashMap<TaskId, Task>> {
-        let default_image = self.default_image.as_deref().unwrap_or(default_image);
+    pub fn tasks(self, default_image: Option<&str>) -> Result<HashMap<TaskId, Task>> {
+        let default_image = self.default_image.as_deref().or(default_image);
         let id_map = TaskNames::from_tasks(&self.tasks, default_image)?;
         let mut tasks = HashMap::new();
         for task in self.tasks.iter() {
@@ -40,21 +40,22 @@ impl RawPipeline {
             for dep in task.depends.as_deref().unwrap_or_default() {
                 depends |= TaskIds::from(id_map.get_task_id(dep)?);
             }
-            let image_name = task.image.as_deref().unwrap_or(default_image);
-            let image_id = id_map.get_image_id(image_name)?;
-            depends |= TaskIds::from(image_id);
-            // only add image if its not already added
-            if let hash_map::Entry::Vacant(e) = tasks.entry(image_id) {
-                e.insert(Task::PullImage(image_name.to_owned()));
+            let image_name = task.image.as_deref().or(default_image);
+            if let Some(image_name) = image_name {
+                let image_id = id_map.get_image_id(image_name)?;
+                depends |= TaskIds::from(image_id);
+                // only add image if its not already added
+                if let hash_map::Entry::Vacant(e) = tasks.entry(image_id) {
+                    e.insert(Task::PullImage(image_name.to_owned()));
+                }
             }
-
             let id = id_map.get_task_id(&task.name)?;
-            let task = Task::CommandLine {
-                name: task.name.to_owned(),
-                commands: task.commands.to_owned(),
-                image: image_name.to_owned(),
+            let task = Task::command(
+                task.name.to_owned(),
+                task.commands.to_owned(),
+                image_name.map(String::from),
                 depends,
-            };
+            );
             tasks.insert(id, task);
         }
         Ok(tasks)
@@ -126,7 +127,7 @@ mod test {
           depends: ["step-2"]
         "#;
         let raw_tasks: RawPipeline = serde_yaml::from_str(yaml).unwrap();
-        assert!(raw_tasks.tasks("image").is_err());
+        assert!(raw_tasks.tasks(Some("image")).is_err());
     }
 
     #[test]
@@ -139,6 +140,6 @@ mod test {
           name: "step-1"
         "#;
         let raw_tasks: RawPipeline = serde_yaml::from_str(yaml).unwrap();
-        assert!(raw_tasks.tasks("imagez").is_err());
+        assert!(raw_tasks.tasks(Some("imagez")).is_err());
     }
 }

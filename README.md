@@ -24,7 +24,8 @@ For `git push` to trigger the runs, three things are needed:
 # optionally specify maximum number of parallel tasks, defaults to 1
 # 0 means the number of cores on the machine
 n_parallel: 2
-# optionally specify default image for the task, defaults to debian:bookworm
+# optionally specify default image for the task. if none is specified,
+# the commands are run directly on the matchine, ie. not inside a container.
 # the images must have /bin/bash to run the commands
 image: "docker.io/library/debian:bookworm-slim"
 tasks:

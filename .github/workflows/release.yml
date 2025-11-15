@@ -60,7 +60,7 @@ jobs:
       run: |
         staging="runr-v${{ needs.create-release.outputs.version }}-${{ matrix.arch }}"
         mkdir -p "$staging"
-        cp -r migrations static LICENSE README.md "$staging/"
+        cp -r LICENSE README.md "$staging/"
         cp "${{ env.INSTALL_PATH }}/runr" "$staging/"
         tar czf "$staging.tar.gz" "$staging"
         echo "ASSET=$staging.tar.gz" >> $GITHUB_ENV
@@ -75,5 +75,5 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        gh release upload ${{ needs.create-release.outputs.version }} ${{ env.ASSET }}
-        gh release upload ${{ needs.create-release.outputs.version }} ${{ env.DEB_ASSET }}
+        gh release upload v${{ needs.create-release.outputs.version }} ${{ env.ASSET }}
+        gh release upload v${{ needs.create-release.outputs.version }} ${{ env.DEB_ASSET }}

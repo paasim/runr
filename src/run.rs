@@ -42,6 +42,10 @@ impl Run {
         self.status.is_completed()
     }
 
+    pub fn is_succeeded(&self) -> bool {
+        self.status.is_succeeded()
+    }
+
     /// Check for new output
     pub fn check_output(&self) -> Result<WorkOutput> {
         Ok(self.receiver.recv()?)
@@ -63,10 +67,10 @@ impl Run {
         while !self.status.is_completed() {
             self.submit_runnable()?;
             match self.check_output()? {
-                WorkOutput::Ok(id) => self.status.complete(id),
+                WorkOutput::Ok(id) => self.status.complete(id, true),
                 WorkOutput::Failed(id, s) => {
                     eprintln!("{s}\nKilling containers and exiting.");
-                    self.status.complete(id);
+                    self.status.complete(id, false);
                     return Ok(());
                 }
             }
@@ -83,7 +87,9 @@ impl Run {
             .workers
             .drain(..)
             .map(|w| {
-                self.sender.send(WorkInput::Stop)?;
+                if let Err(e) = self.sender.send(WorkInput::Stop) {
+                    eprintln!("error with sending stop signal: {e}");
+                };
                 Ok((
                     w.container_name()
                         .map(|n| kill_container(n, output.try_clone()?)),

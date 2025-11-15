@@ -22,9 +22,9 @@ pub struct Pipeline {
 }
 
 impl Pipeline {
-    fn from_raw(raw_pipeline: RawPipeline, default_image: &str) -> Result<Self> {
+    fn from_raw(raw_pipeline: RawPipeline, default_image: &Option<String>) -> Result<Self> {
         let n_parallel = raw_pipeline.n_parallel()?;
-        let tasks = raw_pipeline.tasks(default_image)?;
+        let tasks = raw_pipeline.tasks(default_image.as_deref())?;
         if let Some(task_ids) = check_cycles(&tasks) {
             let names = task_ids.ids().map(|i| tasks[&i].to_string()).collect();
             return Err(Error::DependencyCycle(names));
@@ -39,7 +39,7 @@ impl Pipeline {
         (min_tasks.unwrap_or(0) + 2).min(min_default)
     }
 
-    pub fn read_from(rdr: impl Read, default_image: &str) -> Result<Self> {
+    pub fn read_from(rdr: impl Read, default_image: &Option<String>) -> Result<Self> {
         Self::from_raw(
             serde_yaml::from_reader::<_, RawPipeline>(rdr)?,
             default_image,
@@ -100,7 +100,7 @@ mod test {
     fn parse_empty_pipeline() {
         let yaml = "tasks:";
         let raw_tasks: RawPipeline = serde_yaml::from_str(yaml).unwrap();
-        let pipeline = Pipeline::from_raw(raw_tasks, "").unwrap();
+        let pipeline = Pipeline::from_raw(raw_tasks, &Some(String::new())).unwrap();
         assert_eq!(pipeline.tasks, HashMap::new());
         assert_eq!(pipeline.n_parallel, NonZeroUsize::new(1).unwrap());
     }
@@ -120,31 +120,24 @@ mod test {
           name: n
           depends: ["step-1"]
         "#;
-        let img0 = "DEFAULT";
         let raw_tasks: RawPipeline = serde_yaml::from_str(yaml).unwrap();
-        let pipeline = Pipeline::from_raw(raw_tasks, img0).unwrap();
-
-        let task0 = Task::PullImage(String::from(img0));
-        let task1 = Task::CommandLine {
+        let pipeline = Pipeline::from_raw(raw_tasks, &None).unwrap();
+        let task0 = Task::CommandLine {
             name: String::from("step-1"),
             commands: String::from("echo\nexit 0\n"),
-            image: String::from(img0),
-            depends: [0]
-                .into_iter()
-                .map(|i| TaskId::try_from(i).unwrap())
-                .collect(),
+            depends: TaskIds::default(),
         };
-        let task2 = Task::PullImage(String::from("image0"));
-        let task3 = Task::CommandLine {
+        let task1 = Task::PullImage(String::from("image0"));
+        let task2 = Task::Container {
             name: String::from("n"),
             commands: String::from("echo n"),
             image: String::from("image0"),
-            depends: [1, 2]
+            depends: [0, 1]
                 .into_iter()
                 .map(|i| TaskId::try_from(i).unwrap())
                 .collect(),
         };
-        let tasks = [task0, task1, task2, task3]
+        let tasks = [task0, task1, task2]
             .into_iter()
             .enumerate()
             .map(|(i, t)| (TaskId::try_from(i).unwrap(), t))
@@ -167,13 +160,14 @@ mod test {
         - commands: echo n
           name: n
           depends: ["step-1"]
+          image: img0
         "#;
-        let img = "IMAGE";
+        let default_img = String::from("img77");
         let raw_tasks: RawPipeline = serde_yaml::from_str(yaml).unwrap();
-        let pipeline = Pipeline::from_raw(raw_tasks, img).unwrap();
+        let pipeline = Pipeline::from_raw(raw_tasks, &Some(default_img.clone())).unwrap();
 
-        let task0 = Task::PullImage(String::from("img77"));
-        let task1 = Task::CommandLine {
+        let task0 = Task::PullImage(default_img);
+        let task1 = Task::Container {
             name: String::from("step-1"),
             commands: String::from("echo\nexit 0\n"),
             image: String::from("img77"),
@@ -182,17 +176,18 @@ mod test {
                 .map(|i| TaskId::try_from(i).unwrap())
                 .collect(),
         };
-        let task2 = Task::CommandLine {
+        let task2 = Task::PullImage(String::from("img0"));
+        let task3 = Task::Container {
             name: String::from("n"),
             commands: String::from("echo n"),
-            image: String::from("img77"),
-            depends: [0, 1]
+            image: String::from("img0"),
+            depends: [1, 2]
                 .into_iter()
                 .map(|i| TaskId::try_from(i).unwrap())
                 .collect(),
         };
 
-        let tasks = vec![task0, task1, task2]
+        let tasks = vec![task0, task1, task2, task3]
             .into_iter()
             .enumerate()
             .map(|(i, t)| (TaskId::try_from(i).unwrap(), t))
@@ -210,7 +205,7 @@ mod test {
           depends: ["self"]
         "#;
         let raw_tasks: RawPipeline = serde_yaml::from_str(yaml).unwrap();
-        assert!(Pipeline::from_raw(raw_tasks, "img").is_err());
+        assert!(Pipeline::from_raw(raw_tasks, &None).is_err());
     }
 
     #[test]
@@ -233,6 +228,6 @@ mod test {
           depends: ["step-1"]
         "#;
         let raw_tasks: RawPipeline = serde_yaml::from_str(yaml).unwrap();
-        assert!(Pipeline::from_raw(raw_tasks, "img").is_err());
+        assert!(Pipeline::from_raw(raw_tasks, &None).is_err());
     }
 }

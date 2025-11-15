@@ -5,7 +5,6 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env, fs, io};
 
-const DEFAULT_IMAGE: &str = "docker.io/library/debian:bookworm";
 const YAML: &str = "runr.yaml";
 
 #[derive(Debug)]
@@ -13,7 +12,7 @@ pub struct Config {
     bare_path: PathBuf,
     repo_name: String,
     repo_branch: String,
-    default_image: String,
+    default_image: Option<String>,
     pipeline_filename: String,
     timestamp: u64,
     cleanup: bool,
@@ -50,7 +49,7 @@ impl Config {
             bare_path,
             repo_name,
             repo_branch: env::var("BRANCH").expect("BRANCH missing"),
-            default_image: env::var("DEFAULT_IMAGE").unwrap_or(DEFAULT_IMAGE.to_string()),
+            default_image: env::var("DEFAULT_IMAGE").ok(),
             pipeline_filename: env::var("PIPELINE_FILENAME").unwrap_or(YAML.to_string()),
             timestamp,
             cleanup,
@@ -72,7 +71,7 @@ impl Config {
         checkout_path
     }
 
-    pub fn default_image(&self) -> &str {
+    pub fn default_image(&self) -> &Option<String> {
         &self.default_image
     }
 
@@ -146,8 +145,16 @@ impl RunConfig {
         self.cleanup
     }
 
-    pub fn container_name(&self, task_name: &str) -> String {
-        format!("{}-{task_name}", self.container_name_prefix)
+    pub fn mk_container_name(&self, task_name: &str) -> String {
+        let Ok(ts) = SystemTime::now().duration_since(UNIX_EPOCH) else {
+            // TODO
+            todo!()
+        };
+        format!(
+            "{}-{task_name}-{}",
+            self.container_name_prefix,
+            ts.as_secs()
+        )
     }
 
     pub fn repo_path(&self) -> &Path {

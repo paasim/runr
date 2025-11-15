@@ -6,19 +6,27 @@ pub struct Status {
     new: Vec<(TaskId, TaskIds)>,
     in_progress: TaskIds,
     completed: TaskIds,
+    failures: TaskIds,
 }
 
 impl Status {
     /// Set the given `task_id` to be completed.
-    pub fn complete(&mut self, task_id: TaskId) {
+    pub fn complete(&mut self, task_id: TaskId, succeeded: bool) {
         let ids = TaskIds::from(task_id);
         self.in_progress &= !ids;
         self.completed |= ids;
+        if !succeeded {
+            self.failures |= ids;
+        }
     }
 
     /// Check if the entire run is completed.
     pub fn is_completed(&self) -> bool {
         self.new.is_empty() && self.in_progress.is_empty()
+    }
+
+    pub fn is_succeeded(&self) -> bool {
+        self.failures.is_empty()
     }
 
     /// Initialize a new run given the task ids and their dependencies.
@@ -28,6 +36,7 @@ impl Status {
             new: deps,
             in_progress: TaskIds::default(),
             completed: TaskIds::default(),
+            failures: TaskIds::default(),
         }
     }
 
@@ -90,20 +99,25 @@ mod test {
         assert_eq!(status.next_runnable(), None);
         assert!(!status.is_completed());
 
-        status.complete(TaskId::try_from(2).unwrap());
+        status.complete(TaskId::try_from(2).unwrap(), true);
         // still no new tasks cannot be started
         assert_eq!(status.next_runnable(), None);
-        status.complete(TaskId::try_from(3).unwrap());
+        status.complete(TaskId::try_from(3).unwrap(), true);
+        assert!(status.is_succeeded());
 
         // task 2 completed => 0 can be started and the run can be completed
         assert_eq!(status.next_runnable(), Some(TaskId::try_from(0).unwrap()));
         assert_eq!(status.next_runnable(), None);
         assert!(!status.is_completed());
-        status.complete(TaskId::try_from(0).unwrap());
+        status.complete(TaskId::try_from(0).unwrap(), false);
+        // one task failed
+        assert!(!status.is_succeeded());
 
         // do final task
         assert!(status.next_runnable().is_some());
-        status.complete(TaskId::try_from(1).unwrap());
+        status.complete(TaskId::try_from(1).unwrap(), true);
+        // one task is still failed
+        assert!(!status.is_succeeded());
 
         // done
         assert!(status.is_completed());
